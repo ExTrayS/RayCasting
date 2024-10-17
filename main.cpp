@@ -66,9 +66,10 @@ struct RayInfo
 {
     float wallX;
     float wallY;
+    float distance;
 }rays[32];
 
-#define RAYS_COUNT 32
+#define RAYS_COUNT WINDOW_WIDTH
 #define PI 3.14159f
 
 int main(int argc, char *argv[])
@@ -130,6 +131,9 @@ int main(int argc, char *argv[])
         {1,0,0,1,1,0,0,0,0,1},
         {1,1,1,1,1,1,1,1,1,1},
     };
+    const float FOV = 90.0f*(PI/180.0f);
+    
+    float distanceToProjectPlane = ((float)WINDOW_WIDTH / 2.0f) / tan(FOV/2.0f);
     
     uint32_t first = SDL_GetTicks();
     for(;;)
@@ -147,20 +151,21 @@ int main(int argc, char *argv[])
                 switch(ev.key.keysym.sym )
                 {
                     case SDLK_LEFT:
-                    
+                    angle -= 0.01f;
                     break;
                     case SDLK_RIGHT:
                     {
-                        playerX = playerX + cx*speed*0.16f;
-                        playerY = playerY + cy*speed*0.16f;
+                        angle += 0.01f;
                     }break;
                     case SDLK_UP:
                     {
+                        playerX = playerX + cx*speed*0.16f;
+                        playerY = playerY + cy*speed*0.16f;
                         angle+= 0.01f;
                     }break;
                     case SDLK_DOWN:
                     {
-                        angle -= 0.01f;
+                        
                     }break;
                     default:
                     break;
@@ -171,6 +176,7 @@ int main(int argc, char *argv[])
 #define TILE_HEIGHT 80
         
         SDL_LockTexture(texture,0,&pixels, &pitch);
+#if 0 
         uint8_t *row = (uint8_t*)pixels;
         for(uint32_t y = 0; y < WINDOW_HEIGHT; y++)
         {
@@ -198,14 +204,12 @@ int main(int argc, char *argv[])
             }
             row += pitch;
         }
-        
+#endif
         angle = remainder(angle, 2*PI);
         if (angle < 0)
         {
             angle = 2*PI + angle;
         }
-        
-        const float FOV = 90.0f*(PI/180.0f);
         
         float rayAngle = angle - (FOV / 2.0f); // NOTE 60 degress
         for(uint32_t rayIndex = 0; rayIndex < RAYS_COUNT; rayIndex++)
@@ -305,10 +309,12 @@ int main(int argc, char *argv[])
             if((horizWallDist - vertWallDist) < eps)
             {
                 rayInfo->wallX = hittedX;
+                rayInfo->distance = horizWallDist;
             }
             else
             {
                 rayInfo->wallX = hittedXVert;
+                rayInfo->distance = vertWallDist;
             }
             
             if((horizWallDist - vertWallDist) < eps)
@@ -329,11 +335,11 @@ int main(int argc, char *argv[])
         
         
         SDL_UnlockTexture(texture);
-        SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+        SDL_SetRenderDrawColor(renderer, 0xF0, 0xF0, 0xF0, 0xFF);
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, 0, 0);
         
-        DrawCircle(renderer,playerX,playerY, 30);
+        //DrawCircle(renderer,playerX,playerY, 30);
         //DrawCircle(renderer,Ax,Ay, 3);
         //DrawCircle(renderer,Bx,By, 3);
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0x00, 0xFF);
@@ -345,13 +351,22 @@ int main(int argc, char *argv[])
         }
         
         // NOTE player direction vector rendering
-        SDL_RenderDrawLine(renderer, playerX, playerY, playerX + cx*50, playerY +cy*50);
+        //SDL_RenderDrawLine(renderer, playerX, playerY, playerX + cx*50, playerY +cy*50);
         for(uint32_t rayIndex = 0; rayIndex < RAYS_COUNT; rayIndex++)
         {
             RayInfo rayInfo = rays[rayIndex];
-            SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0xFF, 0xFF);
-            SDL_RenderDrawLine(renderer, playerX, playerY, rayInfo.wallX, rayInfo.wallY);
-            DrawCircle(renderer, rayInfo.wallX, rayInfo.wallY, 5);
+            float wallStripHeight = (TILE_WIDTH / rayInfo.distance)*distanceToProjectPlane;
+            
+            SDL_Rect wall{};
+            wall.x = rayIndex * 1.0f;
+            wall.y = (WINDOW_HEIGHT / 2.0f) - (wallStripHeight / 2.0f);
+            wall.w = 1.0f;
+            wall.h = wallStripHeight;
+            SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
+            SDL_RenderFillRect(renderer, &wall);
+            
+            //SDL_RenderDrawLine(renderer, playerX, playerY, rayInfo.wallX, rayInfo.wallY);
+            //DrawCircle(renderer, rayInfo.wallX, rayInfo.wallY, 5);
         }
         SDL_RenderPresent(renderer);
     }
