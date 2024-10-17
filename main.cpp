@@ -62,14 +62,16 @@ void DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32
     }
 }
 
+
+#define RAYS_COUNT WINDOW_WIDTH
 struct RayInfo
 {
     float wallX;
     float wallY;
     float distance;
-}rays[32];
+    float angle;
+}rays[RAYS_COUNT];
 
-#define RAYS_COUNT WINDOW_WIDTH
 #define PI 3.14159f
 
 int main(int argc, char *argv[])
@@ -161,7 +163,6 @@ int main(int argc, char *argv[])
                     {
                         playerX = playerX + cx*speed*0.16f;
                         playerY = playerY + cy*speed*0.16f;
-                        angle+= 0.01f;
                     }break;
                     case SDLK_DOWN:
                     {
@@ -215,7 +216,7 @@ int main(int argc, char *argv[])
         for(uint32_t rayIndex = 0; rayIndex < RAYS_COUNT; rayIndex++)
         {
             RayInfo *rayInfo = &rays[rayIndex];
-            
+            rayInfo->angle = rayAngle;
             float hittedX = -1;
             float hittedY = -1;
             bool horizHit = false;
@@ -355,8 +356,9 @@ int main(int argc, char *argv[])
         for(uint32_t rayIndex = 0; rayIndex < RAYS_COUNT; rayIndex++)
         {
             RayInfo rayInfo = rays[rayIndex];
-            float wallStripHeight = (TILE_WIDTH / rayInfo.distance)*distanceToProjectPlane;
-            
+            float rightDist = rayInfo.distance*cosf(rayInfo.angle - angle);
+            float wallStripHeight = (TILE_WIDTH / rightDist)*distanceToProjectPlane;
+            //float alpha = 10.0f / rightDist;
             SDL_Rect wall{};
             wall.x = rayIndex * 1.0f;
             wall.y = (WINDOW_HEIGHT / 2.0f) - (wallStripHeight / 2.0f);
