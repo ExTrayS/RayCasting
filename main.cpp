@@ -15,14 +15,6 @@ struct Vec2f
     float y;
 };
 
-
-struct CoordinateSystem
-{
-    Vec2f origin;
-    Vec2f U;
-    Vec2f V;
-};
-
 void DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32_t radius)
 {
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
@@ -73,7 +65,8 @@ struct RayInfo
 }rays[RAYS_COUNT];
 
 #define PI 3.14159f
-
+#define TO_RADIANS(x) x*(PI/180.0f)
+#define TO_DEGREES(x) x*(180.0f/PI)
 int main(int argc, char *argv[])
 {
     
@@ -96,19 +89,8 @@ int main(int argc, char *argv[])
     int32_t pitch = 0;
     void *pixels;
     
-    CoordinateSystem playerCoordinateSystem{};
-    playerCoordinateSystem.origin = {150.0f,150.0f};
-    playerCoordinateSystem.U = {1.0f,0.0f};
-    playerCoordinateSystem.V = {0.0f,1.0f};
-    
-    Vec2f lineOrigin = {0.0f,0.0f};
-    Vec2f lineEnd = {5.0f,0.0f};
-    
     float playerX = 130.0f;
     float playerY = 130.0f;
-    
-    float lastPlayerX = playerX;
-    float lastPlayerY = playerY;
     
     float cx = 1.0f;
     float cy = 0.0f;
@@ -133,7 +115,7 @@ int main(int argc, char *argv[])
         {1,0,0,1,1,0,0,0,0,1},
         {1,1,1,1,1,1,1,1,1,1},
     };
-    const float FOV = 90.0f*(PI/180.0f);
+    const float FOV = 70.0f*(PI/180.0f);
     
     float distanceToProjectPlane = ((float)WINDOW_WIDTH / 2.0f) / tan(FOV/2.0f);
     
@@ -212,11 +194,18 @@ int main(int argc, char *argv[])
             angle = 2*PI + angle;
         }
         
-        float rayAngle = angle - (FOV / 2.0f); // NOTE 60 degress
-        for(uint32_t rayIndex = 0; rayIndex < RAYS_COUNT; rayIndex++)
+        float rayAngle = 0; // NOTE 60 degress
+        for(int32_t rayIndex = 0; rayIndex < RAYS_COUNT; rayIndex++)
         {
             RayInfo *rayInfo = &rays[rayIndex];
+            rayAngle = angle + atan((rayIndex -  RAYS_COUNT / 2) / distanceToProjectPlane);
             rayInfo->angle = rayAngle;
+            rayAngle = remainder(rayAngle, 2*PI);
+            if (rayAngle < 0)
+            {
+                rayAngle = 2*PI + rayAngle;
+            }
+            
             float hittedX = -1;
             float hittedY = -1;
             bool horizHit = false;
@@ -306,8 +295,7 @@ int main(int argc, char *argv[])
             float horizWallDist = (horizHit) ? sqrtf(pow((hittedX - playerX),2) + pow((hittedY - playerY),2)) : 1e30;
             float vertWallDist = (vertHit) ? sqrtf( pow((hittedXVert - playerX),2) + pow((hittedYVert - playerY),2) ) : 1e30;
             
-            float eps = 0.0005f;;
-            if((horizWallDist - vertWallDist) < eps)
+            if(horizWallDist < vertWallDist)
             {
                 rayInfo->wallX = hittedX;
                 rayInfo->distance = horizWallDist;
@@ -318,7 +306,7 @@ int main(int argc, char *argv[])
                 rayInfo->distance = vertWallDist;
             }
             
-            if((horizWallDist - vertWallDist) < eps)
+            if(horizWallDist < vertWallDist)
             {
                 rayInfo->wallY = hittedY;
             }
@@ -326,12 +314,7 @@ int main(int argc, char *argv[])
             {
                 rayInfo->wallY = hittedYVert;
             }
-            rayAngle += FOV / (float)RAYS_COUNT;
-            rayAngle = remainder(rayAngle, 2*PI);
-            if (rayAngle < 0)
-            {
-                rayAngle = 2*PI + rayAngle;
-            }
+            
         }
         
         
@@ -340,7 +323,7 @@ int main(int argc, char *argv[])
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, 0, 0);
         
-        //DrawCircle(renderer,playerX,playerY, 30);
+        DrawCircle(renderer,playerX,playerY, 30);
         //DrawCircle(renderer,Ax,Ay, 3);
         //DrawCircle(renderer,Bx,By, 3);
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0x00, 0xFF);
@@ -353,10 +336,11 @@ int main(int argc, char *argv[])
         
         // NOTE player direction vector rendering
         //SDL_RenderDrawLine(renderer, playerX, playerY, playerX + cx*50, playerY +cy*50);
+        
         for(uint32_t rayIndex = 0; rayIndex < RAYS_COUNT; rayIndex++)
         {
             RayInfo rayInfo = rays[rayIndex];
-            float rightDist = rayInfo.distance*cosf(rayInfo.angle - angle);
+            float rightDist = rayInfo.distance*cosf(angle - rayInfo.angle);
             float wallStripHeight = (TILE_WIDTH / rightDist)*distanceToProjectPlane;
             //float alpha = 10.0f / rightDist;
             SDL_Rect wall{};
@@ -366,13 +350,12 @@ int main(int argc, char *argv[])
             wall.h = wallStripHeight;
             SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
             SDL_RenderFillRect(renderer, &wall);
-            
             //SDL_RenderDrawLine(renderer, playerX, playerY, rayInfo.wallX, rayInfo.wallY);
             //DrawCircle(renderer, rayInfo.wallX, rayInfo.wallY, 5);
         }
         SDL_RenderPresent(renderer);
+        
     }
-    
     
     printf("Hello world\n");
     system("pause");
