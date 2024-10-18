@@ -342,14 +342,40 @@ int main(int argc, char *argv[])
             RayInfo rayInfo = rays[rayIndex];
             float rightDist = rayInfo.distance*cosf(angle - rayInfo.angle);
             float wallStripHeight = (TILE_WIDTH / rightDist)*distanceToProjectPlane;
-            //float alpha = 10.0f / rightDist;
+            float alpha = 70.0f / rightDist;
+            if(alpha > 1.0f)
+            {
+                alpha = 1.0f;
+            }
             SDL_Rect wall{};
             wall.x = rayIndex * 1.0f;
             wall.y = (WINDOW_HEIGHT / 2.0f) - (wallStripHeight / 2.0f);
             wall.w = 1.0f;
             wall.h = wallStripHeight;
-            SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
+            
+            SDL_Rect skyLine{};
+            skyLine.x = rayIndex;
+            skyLine.y = 0;
+            skyLine.w = 1.0f;
+            skyLine.h = wall.y;
+            
+            SDL_Rect floor{};
+            floor.x = rayIndex;
+            floor.y = WINDOW_HEIGHT / 2.0f + wallStripHeight / 2.0 - 1.0f;
+            floor.w = 1.0f;
+            floor.h = WINDOW_HEIGHT  - WINDOW_HEIGHT / 2.0f + wallStripHeight / 2.0f;
+            
+            float wallColorR = alpha*255;
+            float wallColorG = alpha*255;
+            float wallColorB = alpha*255;
+            
+            SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
+            SDL_RenderFillRect(renderer, &floor);
+            
+            SDL_SetRenderDrawColor(renderer, wallColorR, wallColorG, wallColorB, 0xFF);
             SDL_RenderFillRect(renderer, &wall);
+            SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xFF, 0xFF);
+            SDL_RenderFillRect(renderer, &skyLine);
             //SDL_RenderDrawLine(renderer, playerX, playerY, rayInfo.wallX, rayInfo.wallY);
             //DrawCircle(renderer, rayInfo.wallX, rayInfo.wallY, 5);
         }
