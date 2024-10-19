@@ -2,18 +2,69 @@
 #include "include/SDL/SDL.h"
 #include <stdint.h>
 #include <math.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #undef main
 
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 800
 #define MINIMAP_SCALE 0.3f
+#define TILE_WIDTH 80
+#define TILE_HEIGHT 80
+
 
 struct Vec2f
 {
     float x;
     float y;
 };
+
+struct Texture
+{
+    int32_t width;
+    int32_t height;
+    int32_t nChannels;
+    
+    uint8_t *data;
+};
+
+Texture *loadTexture(const char *path)
+{
+    Texture *texture = (Texture*)malloc(sizeof(Texture));
+    
+    
+    texture->data = stbi_load(path, &texture->width, &texture->height, &texture->nChannels, 0);
+    if(!texture->data)
+    {
+        // NOTE LOGGING
+    }
+    return texture;
+}
+
+uint32_t *createTexture()
+{
+    uint32_t *data = (uint32_t*)malloc(TILE_WIDTH*TILE_HEIGHT*4);
+    
+    for(uint32_t y = 0; y < TILE_HEIGHT; y++)
+    {
+        for(uint32_t x = 0; x < TILE_WIDTH; x++)
+        {
+            if((x % 8) == 0 && (y % 8) == 0)
+            {
+                data[TILE_WIDTH*y+x] = 0x000000FF;
+            }
+            else
+            {
+                data[TILE_WIDTH*y+x] = 0x0000FFFF;
+            }
+        }
+        
+    }
+    
+    return data;
+}
+
 
 void DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32_t radius)
 {
@@ -62,6 +113,7 @@ struct RayInfo
     float wallY;
     float distance;
     float angle;
+    bool verticalHit;
 }rays[RAYS_COUNT];
 
 #define PI 3.14159f
@@ -119,6 +171,10 @@ int main(int argc, char *argv[])
     
     float distanceToProjectPlane = ((float)WINDOW_WIDTH / 2.0f) / tan(FOV/2.0f);
     
+    Texture *entireTexture = loadTexture("../textures.png");
+    uint8_t *tex = entireTexture->data;
+    const uint32_t tileWidth = 64;
+    const uint32_t tileHeight = 64;
     uint32_t first = SDL_GetTicks();
     for(;;)
     {
@@ -155,8 +211,6 @@ int main(int argc, char *argv[])
                 }
             }
         }
-#define TILE_WIDTH 80
-#define TILE_HEIGHT 80
         
         SDL_LockTexture(texture,0,&pixels, &pitch);
 #if 0 
@@ -299,11 +353,13 @@ int main(int argc, char *argv[])
             {
                 rayInfo->wallX = hittedX;
                 rayInfo->distance = horizWallDist;
+                rayInfo->verticalHit = false;
             }
             else
             {
                 rayInfo->wallX = hittedXVert;
                 rayInfo->distance = vertWallDist;
+                rayInfo->verticalHit = true;
             }
             
             if(horizWallDist < vertWallDist)
@@ -349,7 +405,12 @@ int main(int argc, char *argv[])
             }
             SDL_Rect wall{};
             wall.x = rayIndex * 1.0f;
+            // NOTE wall topPixel
             wall.y = (WINDOW_HEIGHT / 2.0f) - (wallStripHeight / 2.0f);
+            if(wall.y < 0)
+            {
+                wall.y = 0;
+            }
             wall.w = 1.0f;
             wall.h = wallStripHeight;
             
@@ -364,7 +425,10 @@ int main(int argc, char *argv[])
             floor.y = WINDOW_HEIGHT / 2.0f + wallStripHeight / 2.0 - 1.0f;
             floor.w = 1.0f;
             floor.h = WINDOW_HEIGHT  - WINDOW_HEIGHT / 2.0f + wallStripHeight / 2.0f;
-            
+            if(floor.y > WINDOW_HEIGHT)
+            {
+                floor.y = WINDOW_HEIGHT;;
+            }
             float wallColorR = alpha*255;
             float wallColorG = alpha*255;
             float wallColorB = alpha*255;
@@ -376,6 +440,29 @@ int main(int argc, char *argv[])
             SDL_RenderFillRect(renderer, &wall);
             SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xFF, 0xFF);
             SDL_RenderFillRect(renderer, &skyLine);
+            
+            //NOTE rendering texture
+            int32_t textureX = 0;
+            if(rayInfo.verticalHit)
+            {
+                textureX = (int32_t)rayInfo.wallY % tileHeight;
+                
+            }
+            else
+            {
+                textureX = (int32_t)rayInfo.wallX % tileWidth;
+            }
+            
+            
+            for(int32_t y = wall.y; y < (int32_t)(floor.y+1); y++)
+            {
+                int distanceFromTop = y + (wallStripHeight / 2) - (WINDOW_HEIGHT / 2);
+                int32_t textureY = distanceFromTop*((float)tileHeight / wallStripHeight);
+                uint8_t*pixel = &tex[0+textureX*3 + 384*textureY*3];
+                SDL_SetRenderDrawColor(renderer, pixel[0], pixel[1], pixel[2], 0xFF);
+                SDL_RenderDrawPoint(renderer, rayIndex, y);
+            }
+            
             //SDL_RenderDrawLine(renderer, playerX, playerY, rayInfo.wallX, rayInfo.wallY);
             //DrawCircle(renderer, rayInfo.wallX, rayInfo.wallY, 5);
         }
