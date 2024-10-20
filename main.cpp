@@ -29,6 +29,16 @@ struct Texture
     uint8_t *data;
 };
 
+struct Sprite
+{
+    float x;
+    float y;
+    float angle;
+    float distance;
+    
+    Texture *texture;
+};
+
 Texture *loadTexture(const char *path)
 {
     Texture *texture = (Texture*)malloc(sizeof(Texture));
@@ -40,6 +50,11 @@ Texture *loadTexture(const char *path)
         // NOTE LOGGING
     }
     return texture;
+}
+
+inline float distance(float x1, float y1, float x2, float y2)
+{
+    return sqrtf(pow(x2-x1,2) + pow(y2-y1,2));
 }
 
 uint32_t *createTexture()
@@ -64,7 +79,6 @@ uint32_t *createTexture()
     
     return data;
 }
-
 
 void DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32_t radius)
 {
@@ -176,6 +190,14 @@ int main(int argc, char *argv[])
     const uint32_t tileWidth = 64;
     const uint32_t tileHeight = 64;
     uint32_t first = SDL_GetTicks();
+    
+    Texture *guardSprite = loadTexture("../src/mguard_s_1.bmp");
+    
+    Sprite sprite{};
+    sprite.x = 120.0f;
+    sprite.y = 120.0f;
+    sprite.texture = guardSprite;
+    
     for(;;)
     {
         SDL_Event ev;
@@ -454,13 +476,67 @@ int main(int argc, char *argv[])
             }
             
             
+            
             for(int32_t y = wall.y; y < (int32_t)(floor.y+1); y++)
             {
                 int distanceFromTop = y + (wallStripHeight / 2) - (WINDOW_HEIGHT / 2);
                 int32_t textureY = distanceFromTop*((float)tileHeight / wallStripHeight);
-                uint8_t*pixel = &tex[0+textureX*3 + 384*textureY*3];
+                uint8_t*pixel = &tex[textureX*3 + entireTexture->width*textureY*3];
                 SDL_SetRenderDrawColor(renderer, pixel[0], pixel[1], pixel[2], 0xFF);
                 SDL_RenderDrawPoint(renderer, rayIndex, y);
+            }
+            
+            // NOTE(shvayko): Is sprite seen
+            
+            float spriteAngle = angle - atan2(sprite.y - playerY, sprite.x - playerX);
+            
+            if(spriteAngle > PI)
+            {
+                spriteAngle -= 2*PI;
+            }
+            if(spriteAngle < -PI)
+            {
+                spriteAngle += 2*PI;
+            }
+            
+            spriteAngle = fabs(spriteAngle);
+            
+            bool isVisible = false;
+            if(spriteAngle < FOV/2.0)
+            {
+                isVisible = true;
+            }
+            
+            if(isVisible)
+            {
+                float ang =  atan2(sprite.y - playerY, sprite.x - playerX) - angle;
+                sprite.distance = distance(playerX, playerY, sprite.x, sprite.y);
+                
+                float spriteProjHeight = distanceToProjectPlane * (sprite.texture->height / sprite.distance);
+                
+                float screenSpaceX = tan(ang)*distanceToProjectPlane;
+                
+                float leftSpriteX  = WINDOW_WIDTH/2.0f + screenSpaceX;
+                float rightSpriteX = leftSpriteX + sprite.texture->width;
+                
+                float spriteTopY = WINDOW_HEIGHT / 2.0f - (spriteProjHeight / 2.0f);
+                spriteTopY = (spriteTopY < 0) ? 0: spriteTopY;
+                float spriteBottomY = WINDOW_HEIGHT / 2.0f + spriteProjHeight / 2.0f;
+                spriteBottomY = (spriteBottomY > WINDOW_HEIGHT) ? WINDOW_HEIGHT : spriteBottomY;
+                
+                for(int32_t spriteX = (int32_t)leftSpriteX; spriteX < rightSpriteX; spriteX++)
+                {
+                    for(int32_t spriteY = (int32_t)spriteTopY; spriteY < spriteBottomY; spriteY++)
+                    {
+                        int32_t distanceFromTop = spriteY + (spriteProjHeight / 2.0f) - (WINDOW_HEIGHT / 2.0f);
+                        int32_t u = spriteX - leftSpriteX;
+                        int32_t v = distanceFromTop*(sprite.texture->height / spriteProjHeight);
+                        uint8_t *pixel = &sprite.texture->data[u*3 + v*sprite.texture->width*3];
+                        SDL_SetRenderDrawColor(renderer, pixel[0], pixel[1], pixel[2], 0xFF);
+                        SDL_RenderDrawPoint(renderer, spriteX, spriteY);
+                    }
+                }
+                
             }
             
             //SDL_RenderDrawLine(renderer, playerX, playerY, rayInfo.wallX, rayInfo.wallY);
