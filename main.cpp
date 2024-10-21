@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
     
     Sprite sprite{};
     sprite.x = 120.0f;
-    sprite.y = 120.0f;
+    sprite.y = 420.0f;
     sprite.texture = guardSprite;
     
     for(;;)
@@ -532,6 +532,10 @@ int main(int argc, char *argv[])
                         int32_t u = spriteX - leftSpriteX;
                         int32_t v = distanceFromTop*(sprite.texture->height / spriteProjHeight);
                         uint8_t *pixel = &sprite.texture->data[u*3 + v*sprite.texture->width*3];
+                        if(pixel[0] == 152 && pixel[2] == 136)
+                        {
+                            continue;
+                        }
                         SDL_SetRenderDrawColor(renderer, pixel[0], pixel[1], pixel[2], 0xFF);
                         SDL_RenderDrawPoint(renderer, spriteX, spriteY);
                     }
